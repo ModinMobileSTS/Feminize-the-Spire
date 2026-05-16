@@ -1,0 +1,11 @@
+﻿{
+  "Main_Feminization": {
+    "TEXT": [
+      "Enable monster NSFW content",
+      "Enable NPC feminization",
+      "Enable NPC NSFW content",
+      "Enable monster feminization",
+      "Enable character NSFW content"
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+﻿{
+  "Main_Feminization": {
+    "TEXT": [
+      "Enable character NSFW content",
+      "Enable NPC feminization",
+      "Enable NPC NSFW content",
+      "Enable monster feminization",
+      "Enable monster NSFW content"
+    ]
+  },
+  "Config_Feminization": {
+    "TEXT": [
+      "Enable character NSFW content",
+      "Enable NPC feminization",
+      "Enable NPC NSFW content",
+      "Enable monster feminization",
+      "Enable monster NSFW content"
+    ]
+  },
+  "CharacterSkin_Feminization": {
+    "TEXT": [
+      "Original",
+      "Feminization-1",
+      "Feminization-1",
+      "Feminization-1",
+      "Feminization-1"
+    ]
+  }
+}

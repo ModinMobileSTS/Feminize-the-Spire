@@ -1,0 +1,29 @@
+﻿{
+  "Main_Feminization": {
+    "TEXT": [
+      "允许角色NSFW内容",
+      "启用NPC娘化",
+      "允许NPC NSFW内容",
+      "启用怪物娘化",
+      "允许怪物NSFW内容"
+    ]
+  },
+  "Config_Feminization": {
+    "TEXT": [
+      "允许角色NSFW内容",
+      "启用NPC娘化",
+      "允许NPC NSFW内容",
+      "启用怪物娘化",
+      "允许怪物NSFW内容"
+    ]
+  },
+  "CharacterSkin_Feminization": {
+    "TEXT": [
+      "原版",
+      "铁甲战姬",
+      "色色猎手",
+      "故障机器娘",
+      "大观者"
+    ]
+  }
+}
