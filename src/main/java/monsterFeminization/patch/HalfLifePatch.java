@@ -29,24 +29,53 @@ import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePostfixPatch;
 import com.megacrit.cardcrawl.cards.DamageInfo;
 import com.megacrit.cardcrawl.monsters.AbstractMonster;
-import com.megacrit.cardcrawl.monsters.city.Centurion;
-import com.megacrit.cardcrawl.monsters.city.GremlinLeader;
-import com.megacrit.cardcrawl.monsters.city.Snecko;
-import com.megacrit.cardcrawl.monsters.exordium.AcidSlime_L;
-import com.megacrit.cardcrawl.monsters.exordium.AcidSlime_M;
-import com.megacrit.cardcrawl.monsters.exordium.Cultist;
-import com.megacrit.cardcrawl.monsters.exordium.GremlinNob;
-import com.megacrit.cardcrawl.monsters.exordium.GremlinTsundere;
-import com.megacrit.cardcrawl.monsters.exordium.JawWorm;
-import com.megacrit.cardcrawl.monsters.exordium.SlimeBoss;
-import com.megacrit.cardcrawl.monsters.exordium.SpikeSlime_L;
-import com.megacrit.cardcrawl.monsters.exordium.SpikeSlime_M;
 import java.lang.reflect.Field;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import monsterFeminization.MonsterFeminizationMod;
 
 public class HalfLifePatch {
+    private static final String DEFAULT_SKIN = "default";
+    private static final String DAMAGED_SKIN = "damaged";
+    /**
+     * SuperclassFinder walks the hierarchy and throws a NoSuchFieldException per level, and this runs on
+     * every heal and every damage event. The skeleton field per monster class never changes, so cache it.
+     */
+    private static volatile Map<Class<?>, Field> skeletonFieldCache = new IdentityHashMap<Class<?>, Field>();
+
     public static boolean canSwitch(AbstractMonster _inst) {
-        return !(_inst instanceof Cultist) && !(_inst instanceof GremlinNob) && !(_inst instanceof JawWorm) && !(_inst instanceof GremlinTsundere) && !(_inst instanceof GremlinLeader) && !(_inst instanceof SlimeBoss) && !(_inst instanceof AcidSlime_M) && !(_inst instanceof AcidSlime_L) && !(_inst instanceof SpikeSlime_L) && !(_inst instanceof SpikeSlime_M) && !(_inst instanceof Centurion) && !(_inst instanceof Snecko);
+        try {
+            return HalfLifePatch.canSwitch(HalfLifePatch.getSkeleton(_inst));
+        }
+        catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private static boolean canSwitch(Skeleton skeleton) {
+        return HalfLifePatch.hasSkin(skeleton, DEFAULT_SKIN) && HalfLifePatch.hasSkin(skeleton, DAMAGED_SKIN);
+    }
+
+    private static boolean hasSkin(Skeleton skeleton, String skinName) {
+        return skeleton != null && skeleton.getData() != null && skeleton.getData().findSkin(skinName) != null;
+    }
+
+    private static Skeleton getSkeleton(AbstractMonster _inst) throws Exception {
+        Class<?> monsterClass = _inst.getClass();
+        Field skeletonFiled = skeletonFieldCache.get(monsterClass);
+        if (skeletonFiled == null) {
+            skeletonFiled = SuperclassFinder.getSuperclassField(monsterClass, (String)"skeleton");
+            if (skeletonFiled == null) {
+                return null;
+            }
+            skeletonFiled.setAccessible(true);
+            synchronized (HalfLifePatch.class) {
+                Map<Class<?>, Field> updated = new IdentityHashMap<Class<?>, Field>(skeletonFieldCache);
+                updated.put(monsterClass, skeletonFiled);
+                skeletonFieldCache = updated;
+            }
+        }
+        return (Skeleton)skeletonFiled.get(_inst);
     }
 
     @SpirePatch(clz=AbstractMonster.class, method="heal")
@@ -56,15 +85,13 @@ public class HalfLifePatch {
             if (!MonsterFeminizationMod.activeFeminization) {
                 return;
             }
-            if (HalfLifePatch.canSwitch(_inst)) {
-                return;
-            }
             try {
+                Skeleton skeleton = HalfLifePatch.getSkeleton(_inst);
+                if (!HalfLifePatch.canSwitch(skeleton)) {
+                    return;
+                }
                 if (_inst.currentHealth * 2 > _inst.maxHealth) {
-                    Field skeletonFiled = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
-                    skeletonFiled.setAccessible(true);
-                    Skeleton skeleton = (Skeleton)skeletonFiled.get(_inst);
-                    skeleton.setSkin("default");
+                    skeleton.setSkin(DEFAULT_SKIN);
                 }
             }
             catch (Exception exception) {
@@ -80,16 +107,13 @@ public class HalfLifePatch {
             if (!MonsterFeminizationMod.activeFeminization || !MonsterFeminizationMod.activeH) {
                 return;
             }
-            if (HalfLifePatch.canSwitch(_inst)) {
-                return;
-            }
-            MonsterFeminizationMod.logger.info("damaged");
             try {
+                Skeleton skeleton = HalfLifePatch.getSkeleton(_inst);
+                if (!HalfLifePatch.canSwitch(skeleton)) {
+                    return;
+                }
                 if (_inst.currentHealth * 2 <= _inst.maxHealth) {
-                    Field skeletonFiled = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
-                    skeletonFiled.setAccessible(true);
-                    Skeleton skeleton = (Skeleton)skeletonFiled.get(_inst);
-                    skeleton.setSkin("damaged");
+                    skeleton.setSkin(DAMAGED_SKIN);
                 }
             }
             catch (Exception exception) {

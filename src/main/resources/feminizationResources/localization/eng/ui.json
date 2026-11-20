@@ -5,7 +5,15 @@
       "Enable NPC feminization",
       "Enable NPC NSFW content",
       "Enable monster feminization",
-      "Enable monster NSFW content"
+      "Enable monster NSFW content",
+      "Enable Downfall feminization",
+      "Try to feminize compatible cards and characters from other mods",
+      "Enable Ironclad card art feminization",
+      "Enable Silent card art feminization",
+      "Enable Defect card art feminization",
+      "Enable Watcher card art feminization",
+      "Enable curse card art feminization",
+      "Enable colorless card art feminization"
     ]
   },
   "Config_Feminization": {
@@ -14,7 +22,15 @@
       "Enable NPC feminization",
       "Enable NPC NSFW content",
       "Enable monster feminization",
-      "Enable monster NSFW content"
+      "Enable monster NSFW content",
+      "Enable Downfall feminization",
+      "Try to feminize compatible cards and characters from other mods",
+      "Enable Ironclad card art feminization",
+      "Enable Silent card art feminization",
+      "Enable Defect card art feminization",
+      "Enable Watcher card art feminization",
+      "Enable curse card art feminization",
+      "Enable colorless card art feminization"
     ]
   },
   "CharacterSkin_Feminization": {

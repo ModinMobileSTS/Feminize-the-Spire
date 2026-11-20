@@ -58,11 +58,16 @@ public class TheSilentChangePart {
             this.changeSelected(option);
         }
         if (this.changeImg) {
-            CharacterSelectionInfo info = FeminizationUtil.silentSelections.get(FeminizationUtil.silentSelected);
+            CharacterSelectionInfo info = FeminizationUtil.getSilentSelection();
+            if (info == null) {
+                return;
+            }
             if (FeminizationMod.activeH && info.bgCharImgNsfw != null) {
                 CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, info.bgCharImgNsfw);
             } else if (info.bgCharImg != null) {
                 CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, info.bgCharImg);
+            } else {
+                CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ImageMaster.CHAR_SELECT_BG_SILENT;
             }
             this.changeImg = false;
         }
@@ -87,9 +92,13 @@ public class TheSilentChangePart {
         if (FeminizationUtil.silentSelected >= max) {
             FeminizationUtil.silentSelected -= max;
         }
+        CharacterSelectionInfo info = FeminizationUtil.getSilentSelection();
+        if (info == null) {
+            return;
+        }
         FeminizationUtil.saveSelectedSkins();
-        CharacterSelectionInfo info = FeminizationUtil.silentSelections.get(FeminizationUtil.silentSelected);
-        CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, FeminizationMod.activeH && info.bgCharImgNsfw != null ? info.bgCharImgNsfw : (info.bgCharImg != null ? info.bgCharImg : "images/ui/charSelect/silentPortrait.jpg"));
+        String bgCharImg = FeminizationMod.activeH && info.bgCharImgNsfw != null ? info.bgCharImgNsfw : info.bgCharImg;
+        CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = bgCharImg != null ? ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, bgCharImg) : ImageMaster.CHAR_SELECT_BG_SILENT;
         option.c.doCharSelectScreenSelectEffect();
     }
 
@@ -106,7 +115,7 @@ public class TheSilentChangePart {
             sb.setColor(Color.WHITE);
             sb.setBlendFunction(770, 771);
         }
-        FontHelper.renderSmartText((SpriteBatch)sb, (BitmapFont)FontHelper.buttonLabelFont, (String)FeminizationUtil.silentSelections.get((int)FeminizationUtil.silentSelected).name, (float)(this.infoX + 50.0f * Settings.scale), (float)(this.infoY + 280.0f * Settings.scale), (float)10000.0f, (float)(40.0f * Settings.scale), (Color)Settings.CREAM_COLOR, (float)1.0f);
+        FontHelper.renderSmartText((SpriteBatch)sb, (BitmapFont)FontHelper.buttonLabelFont, (String)this.skinLabel(), (float)(this.infoX + 50.0f * Settings.scale), (float)(this.infoY + 280.0f * Settings.scale), (float)10000.0f, (float)(40.0f * Settings.scale), (Color)Settings.CREAM_COLOR, (float)1.0f);
         sb.draw(ImageMaster.POPUP_ARROW, this.nextBox.cX - 40.0f, this.nextBox.cY - 40.0f, 20.0f, 20.0f, 80.0f, 80.0f, Settings.scale, Settings.scale, 0.0f, 0, 0, 256, 256, true, false);
         if (this.nextBox.hovered) {
             sb.setBlendFunction(770, 1);
@@ -115,5 +124,10 @@ public class TheSilentChangePart {
             sb.setColor(Color.WHITE);
             sb.setBlendFunction(770, 771);
         }
+    }
+
+    private String skinLabel() {
+        CharacterSelectionInfo info = FeminizationUtil.getSilentSelection();
+        return info == null ? "" : info.name;
     }
 }

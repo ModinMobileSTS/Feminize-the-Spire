@@ -22,7 +22,6 @@ import com.badlogic.gdx.math.MathUtils;
 import com.esotericsoftware.spine.AnimationState;
 import com.esotericsoftware.spine.Bone;
 import com.esotericsoftware.spine.Skeleton;
-import com.evacipated.cardcrawl.modthespire.lib.SpireInsertPatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePostfixPatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePrefixPatch;
@@ -32,6 +31,9 @@ import com.megacrit.cardcrawl.monsters.exordium.HexaghostOrb;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 import feminization.utils.ResourceUtil;
 import monsterFeminization.utils.FeminizationUtil;
 
@@ -40,6 +42,34 @@ public class HexaghostPatch {
     private static final Field ORBS_FIELD = findField(Hexaghost.class, "orbs");
     private static final Field ORB_X_FIELD = findField(HexaghostOrb.class, "x");
     private static final Field ORB_Y_FIELD = findField(HexaghostOrb.class, "y");
+    private static final String[] FIRE_BONE_NAMES = {"guihuo1", "guihuo2", "guihuo3", "guihuo4", "guihuo5", "guihuo6"};
+    /**
+     * Cache indices rather than Bones: every Bone strongly references its Skeleton, which would
+     * keep a WeakHashMap key alive through the value. Indices have no back-reference to the key.
+     */
+    private static final Map<Skeleton, int[]> FIRE_BONES = Collections.synchronizedMap(new WeakHashMap<Skeleton, int[]>());
+
+    private static int[] getFireBones(Skeleton skeleton) {
+        if (skeleton == null) {
+            return null;
+        }
+        int[] bones = FIRE_BONES.get(skeleton);
+        if (bones != null) {
+            return bones;
+        }
+
+        bones = new int[FIRE_BONE_NAMES.length];
+        for (int i = 0; i < FIRE_BONE_NAMES.length; ++i) {
+            Bone bone = skeleton.findBone(FIRE_BONE_NAMES[i]);
+            if (bone == null) {
+                // Unexpected skeleton; do not cache a partial result.
+                return null;
+            }
+            bones[i] = skeleton.getBones().indexOf(bone, true);
+        }
+        FIRE_BONES.put(skeleton, bones);
+        return bones;
+    }
 
     @SpirePatch(clz=Hexaghost.class, method="createOrbs")
     public static class createOrbs {
@@ -54,25 +84,28 @@ public class HexaghostPatch {
 
     @SpirePatch(clz=Hexaghost.class, method="update")
     public static class update {
-        @SpireInsertPatch(rloc=1)
-        public static void insert(Hexaghost _inst) throws Exception {
+        // Runs immediately before the vanilla body — the same point in the frame the original
+        // SpireInsertPatch(rloc=1) targeted, but without hardcoding a bytecode offset that breaks
+        // when the game or another mod shifts the method.
+        @SpirePrefixPatch
+        public static void prefix(Hexaghost _inst) throws Exception {
             if (!monsterFeminization.MonsterFeminizationMod.activeFeminization) {
                 return;
             }
             Skeleton skeleton = (Skeleton)SKELETON_FIELD.get(_inst);
-            Bone fire1 = skeleton.findBone("guihuo1");
-            Bone fire2 = skeleton.findBone("guihuo2");
-            Bone fire3 = skeleton.findBone("guihuo3");
-            Bone fire4 = skeleton.findBone("guihuo4");
-            Bone fire5 = skeleton.findBone("guihuo5");
-            Bone fire6 = skeleton.findBone("guihuo6");
+            int[] fires = getFireBones(skeleton);
+            if (fires == null) {
+                return;
+            }
             ArrayList orbs = (ArrayList)ORBS_FIELD.get(_inst);
-            moveOrb(orbs.get(0), skeleton, fire1, _inst);
-            moveOrb(orbs.get(1), skeleton, fire2, _inst);
-            moveOrb(orbs.get(2), skeleton, fire3, _inst);
-            moveOrb(orbs.get(3), skeleton, fire4, _inst);
-            moveOrb(orbs.get(4), skeleton, fire5, _inst);
-            moveOrb(orbs.get(5), skeleton, fire6, _inst);
+            if (orbs == null || orbs.size() < fires.length) {
+                // Multiplayer (Together in Spire) can rebuild a Hexaghost whose orbs list is
+                // empty/absent; without this the unconditional orbs.get(i) below throws.
+                return;
+            }
+            for (int i = 0; i < fires.length; ++i) {
+                moveOrb(orbs.get(i), skeleton, skeleton.getBones().get(fires[i]), _inst);
+            }
         }
     }
 
@@ -87,22 +120,36 @@ public class HexaghostPatch {
             loadAnimation.setAccessible(true);
             ResourceUtil.invokeLoadAnimation(_inst, loadAnimation, "feminizethespire/monster_overrides/images/monsters/theBottom/boss/ghost/liuhuo.atlas", "feminizethespire/monster_overrides/images/monsters/theBottom/boss/ghost/liuhuo.json", 1.0f);
             AnimationState.TrackEntry e = _inst.state.setAnimation(0, "animation", true);
-            e.setTime(e.getEndTime() * MathUtils.random());
+            if (e != null) {
+                e.setTime(e.getEndTime() * MathUtils.random());
+            }
             Skeleton skeleton = (Skeleton)SKELETON_FIELD.get(_inst);
-            Bone fire1 = skeleton.findBone("guihuo1");
-            Bone fire2 = skeleton.findBone("guihuo2");
-            Bone fire3 = skeleton.findBone("guihuo3");
-            Bone fire4 = skeleton.findBone("guihuo4");
-            Bone fire5 = skeleton.findBone("guihuo5");
-            Bone fire6 = skeleton.findBone("guihuo6");
             ArrayList orbs = (ArrayList)ORBS_FIELD.get(_inst);
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire1.getWorldX(), skeleton.getY() + fire1.getWorldY(), orbs.size()));
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire2.getWorldX(), skeleton.getY() + fire2.getWorldY(), orbs.size()));
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire3.getWorldX(), skeleton.getY() + fire3.getWorldY(), orbs.size()));
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire4.getWorldX(), skeleton.getY() + fire4.getWorldY(), orbs.size()));
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire5.getWorldX(), skeleton.getY() + fire5.getWorldY(), orbs.size()));
-            orbs.add(new HexaghostOrb(skeleton.getX() + fire6.getWorldX(), skeleton.getY() + fire6.getWorldY(), orbs.size()));
+            if (orbs == null) {
+                return;
+            }
+            int[] fires = getFireBones(skeleton);
+            if (fires == null) {
+                // Fem skeleton's flame bones unavailable. The createOrbs patch above suppresses
+                // vanilla orb creation, so never leave the list empty (empty orbs crashes the
+                // per-frame update patch in multiplayer). Fall back to vanilla flame offsets.
+                addFallbackOrbs(orbs);
+                return;
+            }
+            for (int i = 0; i < fires.length; ++i) {
+                Bone fire = skeleton.getBones().get(fires[i]);
+                orbs.add(new HexaghostOrb(skeleton.getX() + fire.getWorldX(), skeleton.getY() + fire.getWorldY(), orbs.size()));
+            }
         }
+    }
+
+    private static void addFallbackOrbs(ArrayList orbs) {
+        orbs.add(new HexaghostOrb(-90.0f, 380.0f, orbs.size()));
+        orbs.add(new HexaghostOrb(90.0f, 380.0f, orbs.size()));
+        orbs.add(new HexaghostOrb(160.0f, 250.0f, orbs.size()));
+        orbs.add(new HexaghostOrb(90.0f, 120.0f, orbs.size()));
+        orbs.add(new HexaghostOrb(-90.0f, 120.0f, orbs.size()));
+        orbs.add(new HexaghostOrb(-160.0f, 250.0f, orbs.size()));
     }
 
     private static void moveOrb(Object orb, Skeleton skeleton, Bone fire, Hexaghost owner) throws IllegalAccessException {

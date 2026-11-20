@@ -1,0 +1,16 @@
+ancient-尖刺史莱姆中
+attack-尖刺史莱姆小
+bronze-尖刺史莱姆中
+champ-尖刺史莱姆中
+cultist-史莱姆中
+DarklingSlime-原版小黑
+greed-史莱姆小
+hex-史莱姆中
+PoisonSlime-原版史莱姆小
+protector-史莱姆中
+scrap-尖刺史莱姆小
+shield-史莱姆小
+sliming-尖刺史莱姆小
+slowing-尖刺史莱姆小
+torchhead-尖刺史莱姆中
+

@@ -43,18 +43,18 @@ public class DefectChangePatch {
     public static class changeAnim {
         @SpirePostfixPatch
         public static void postfix(Defect _inst, String playerName) throws Exception {
-            if (FeminizationUtil.defectSelections.size() < 1) {
+            CharacterSelectionInfo info = FeminizationUtil.getDefectSelection();
+            if (info == null) {
                 return;
             }
-            CharacterSelectionInfo info = FeminizationUtil.defectSelections.get(FeminizationUtil.defectSelected);
             if (info.shoulderImg != null) {
-                _inst.shoulderImg = ResourceUtil.replaceTexture(_inst.shoulderImg, info.shoulderImg);
+                _inst.shoulderImg = ResourceUtil.replaceOwnedTexture(_inst.shoulderImg, info.shoulderImg);
             }
             if (info.shoulder2Img != null) {
-                _inst.shoulder2Img = ResourceUtil.replaceTexture(_inst.shoulder2Img, info.shoulder2Img);
+                _inst.shoulder2Img = ResourceUtil.replaceOwnedTexture(_inst.shoulder2Img, info.shoulder2Img);
             }
             if (info.corpseImg != null) {
-                _inst.corpseImg = ResourceUtil.replaceTexture(_inst.corpseImg, info.corpseImg);
+                _inst.corpseImg = ResourceUtil.replaceOwnedTexture(_inst.corpseImg, info.corpseImg);
             }
             if (info.atlas != null && info.json != null) {
                 Method loadAnimationMethod = SuperclassFinder.getSuperClassMethod(_inst.getClass(), (String)"loadAnimation", (Class[])new Class[]{String.class, String.class, Float.TYPE});
@@ -65,7 +65,9 @@ public class DefectChangePatch {
                 stateDataField.setAccessible(true);
                 AnimationStateData stateData = (AnimationStateData)stateDataField.get(_inst);
                 stateData.setMix("Hit", "Idle", 0.1f);
-                e.setTimeScale(0.6f);
+                if (e != null) {
+                    e.setTimeScale(0.6f);
+                }
             }
         }
     }

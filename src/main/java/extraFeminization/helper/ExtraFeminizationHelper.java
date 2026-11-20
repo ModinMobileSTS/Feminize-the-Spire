@@ -55,7 +55,7 @@ public class ExtraFeminizationHelper {
                     return;
                 }
                 Watcher _inst = (Watcher)this.character;
-                _inst.corpseImg = ResourceUtil.replaceTexture(_inst.corpseImg, FeminizationMod.activeH ? "extraFeminizationResources/images/characters/watcher/corpse_nsfw.png" : "extraFeminizationResources/images/characters/watcher/corpse.png");
+                _inst.corpseImg = ResourceUtil.replaceOwnedTexture(_inst.corpseImg, FeminizationMod.activeH ? "extraFeminizationResources/images/characters/watcher/corpse_nsfw.png" : "extraFeminizationResources/images/characters/watcher/corpse.png");
                 try {
                     Field eyeBoneField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeBone");
                     Field skeletonField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");

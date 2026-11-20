@@ -57,9 +57,14 @@ public class WatcherChangePart {
             this.changeSelected(option);
         }
         if (this.changeImg) {
-            CharacterSelectionInfo info = FeminizationUtil.watcherSelections.get(FeminizationUtil.watcherSelected);
+            CharacterSelectionInfo info = FeminizationUtil.getWatcherSelection();
+            if (info == null) {
+                return;
+            }
             if (info.bgCharImg != null) {
                 CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, info.bgCharImg);
+            } else {
+                CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ImageMaster.CHAR_SELECT_BG_WATCHER;
             }
             this.changeImg = false;
         }
@@ -84,9 +89,12 @@ public class WatcherChangePart {
         if (FeminizationUtil.watcherSelected >= max) {
             FeminizationUtil.watcherSelected -= max;
         }
+        CharacterSelectionInfo info = FeminizationUtil.getWatcherSelection();
+        if (info == null) {
+            return;
+        }
         FeminizationUtil.saveSelectedSkins();
-        CharacterSelectionInfo info = FeminizationUtil.watcherSelections.get(FeminizationUtil.watcherSelected);
-        CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, info.bgCharImg != null ? info.bgCharImg : "images/ui/charSelect/watcherPortrait.jpg");
+        CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg = info.bgCharImg != null ? ResourceUtil.replaceTexture(CardCrawlGame.mainMenuScreen.charSelectScreen.bgCharImg, info.bgCharImg) : ImageMaster.CHAR_SELECT_BG_WATCHER;
         option.c.doCharSelectScreenSelectEffect();
     }
 
@@ -103,7 +111,7 @@ public class WatcherChangePart {
             sb.setColor(Color.WHITE);
             sb.setBlendFunction(770, 771);
         }
-        FontHelper.renderSmartText((SpriteBatch)sb, (BitmapFont)FontHelper.buttonLabelFont, (String)FeminizationUtil.watcherSelections.get((int)FeminizationUtil.watcherSelected).name, (float)(this.infoX + 50.0f * Settings.scale), (float)(this.infoY + 280.0f * Settings.scale), (float)10000.0f, (float)(40.0f * Settings.scale), (Color)Settings.CREAM_COLOR, (float)1.0f);
+        FontHelper.renderSmartText((SpriteBatch)sb, (BitmapFont)FontHelper.buttonLabelFont, (String)this.skinLabel(), (float)(this.infoX + 50.0f * Settings.scale), (float)(this.infoY + 280.0f * Settings.scale), (float)10000.0f, (float)(40.0f * Settings.scale), (Color)Settings.CREAM_COLOR, (float)1.0f);
         sb.draw(ImageMaster.POPUP_ARROW, this.nextBox.cX - 40.0f, this.nextBox.cY - 40.0f, 20.0f, 20.0f, 80.0f, 80.0f, Settings.scale, Settings.scale, 0.0f, 0, 0, 256, 256, true, false);
         if (this.nextBox.hovered) {
             sb.setBlendFunction(770, 1);
@@ -112,5 +120,10 @@ public class WatcherChangePart {
             sb.setColor(Color.WHITE);
             sb.setBlendFunction(770, 771);
         }
+    }
+
+    private String skinLabel() {
+        CharacterSelectionInfo info = FeminizationUtil.getWatcherSelection();
+        return info == null ? "" : info.name;
     }
 }

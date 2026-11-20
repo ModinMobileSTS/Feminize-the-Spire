@@ -1,3 +1,16 @@
-/build/
+# Build outputs and local caches
 /.gradle/
+/build/
+/bin/
+__pycache__/
+*.pyc
+
+# Temporary files and game diagnostics
+/agent-tmp/
+/logs/
+/sendToDevs/
+
+# Local project settings
+/.idea/
+/.serena/
 *.iml

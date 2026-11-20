@@ -13,19 +13,30 @@ import feminization.utils.FeminizationUtil;
 import feminization.utils.ResourceUtil;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public class NobraWatcherSuccubusPatch {
     private static final String WATCHER_SUCCUBUS_ID = "watcher_succubus_nun";
     private static final String DEFAULT_ATLAS = "extraFeminizationResources/images/characters/watcher2/idle/nun.atlas";
     private static final String DEFAULT_JSON = "extraFeminizationResources/images/characters/watcher2/idle/nun.json";
+    // The nobra variant only swaps the texture page; its atlas/json are byte-identical to the
+    // defaults, so the skeleton data is always loaded from the original path.
     private static final String NOBRA_ATLAS = "feminizethespire/nobra/extraFeminizationResources/images/characters/watcher2/idle/nun.atlas";
-    private static final String NOBRA_JSON = "feminizethespire/nobra/extraFeminizationResources/images/characters/watcher2/idle/nun.json";
     private static final Method LOAD_ANIMATION = findLoadAnimationMethod();
     private static final Field STATE_DATA = findStateDataField();
     private static final Field SKELETON = findOptionalField(AbstractCreature.class, "skeleton");
     private static final Field EYE_BONE = findOptionalField(Watcher.class, "eyeBone");
-    private static AbstractPlayer currentPlayer;
-    private static boolean currentUsingNobra;
+    /**
+     * Per-player skin-state memory. The previous single static pair corrupted itself the moment two
+     * Watchers existed (multiplayer), and a failed load left the global flag pointing at a skeleton
+     * that was never swapped.
+     */
+    private static final Map<AbstractPlayer, Boolean> NOBRA_STATE =
+            Collections.synchronizedMap(new WeakHashMap<AbstractPlayer, Boolean>());
+    private static final Map<AbstractPlayer, Long> RETRY_AFTER =
+            Collections.synchronizedMap(new WeakHashMap<AbstractPlayer, Long>());
 
     private NobraWatcherSuccubusPatch() {
     }
@@ -60,34 +71,42 @@ public class NobraWatcherSuccubusPatch {
         }
 
         if (!WATCHER_SUCCUBUS_ID.equals(FeminizationUtil.watcherId)) {
-            if (player == currentPlayer) {
-                currentPlayer = null;
-                currentUsingNobra = false;
-            }
+            // Skin switched away; forget this player's state. The body keeps whatever skeleton it
+            // has until the next constructor reload, exactly as before.
+            NOBRA_STATE.remove(player);
+            RETRY_AFTER.remove(player);
             return;
         }
 
         boolean shouldUseNobra = shouldUseNobra(player);
-        if (player != currentPlayer) {
-            currentPlayer = player;
-            currentUsingNobra = false;
+        Boolean currentState = NOBRA_STATE.get(player);
+        if (currentState == null) {
+            // First sighting of this instance: a freshly constructed Watcher already wears the
+            // default skeleton, so only an immediate low-health state needs a load.
+            NOBRA_STATE.put(player, Boolean.FALSE);
             if (!shouldUseNobra) {
                 return;
             }
+        } else if (currentState.booleanValue() == shouldUseNobra) {
+            return;
         }
-        if (player == currentPlayer && shouldUseNobra == currentUsingNobra) {
+
+        Long retryAfter = RETRY_AFTER.get(player);
+        if (retryAfter != null && System.nanoTime() - retryAfter.longValue() < 0L) {
             return;
         }
 
         try {
-            ResourceUtil.invokeLoadAnimation(player, LOAD_ANIMATION, shouldUseNobra ? NOBRA_ATLAS : DEFAULT_ATLAS, shouldUseNobra ? NOBRA_JSON : DEFAULT_JSON, 1.0f);
+            // ResourceUtil releases the replaced owned atlas and rolls back failed JSON loads.
+            ResourceUtil.invokeLoadAnimation(player, LOAD_ANIMATION, shouldUseNobra ? NOBRA_ATLAS : DEFAULT_ATLAS, DEFAULT_JSON, 1.0f);
             updateEyeBone(player);
             player.state.setAnimation(0, "Idle", true);
             AnimationStateData stateData = (AnimationStateData) STATE_DATA.get(player);
             stateData.setMix("Hit", "Idle", 0.1f);
-            currentPlayer = player;
-            currentUsingNobra = shouldUseNobra;
+            NOBRA_STATE.put(player, Boolean.valueOf(shouldUseNobra));
+            RETRY_AFTER.remove(player);
         } catch (Exception e) {
+            RETRY_AFTER.put(player, Long.valueOf(System.nanoTime() + 30_000_000_000L));
             e.printStackTrace();
         }
     }

@@ -28,7 +28,9 @@ public class SentryPatch {
             _inst.hb_h += 40.0f * Settings.yScale;
             _inst.hb.resize(_inst.hb_w, _inst.hb_h);
             AnimationState.TrackEntry e = _inst.state.getCurrent(0);
-            e.setTimeScale(1.0f);
+            if (e != null) {
+                e.setTimeScale(1.0f);
+            }
         }
     }
 }

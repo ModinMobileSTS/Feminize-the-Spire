@@ -2,8 +2,8 @@
   "modid": "FeminizeTheSpire",
   "name": "Feminize the Spire",
   "author_list": ["anaer", "hoykj","apricityx"],
-  "description": "此模组旨在解决 anaertailin 的娘化系列模组分发混乱的问题，本模组收录了截至 2026.5.15 的所有的a大发布的原版娘化模组，包括 MonsterFeminization、NpcFeminization、FeminizationMod 和 ExtraFeminizationMod 中所有的美术资源，并解决了若干冲突问题和性能/内存泄露问题。",
-  "version": "1.0.2",
+  "description": "此模组旨在解决 anaertailin 的娘化系列模组分发混乱的问题，本模组收录了截至 2026.5.15 的所有的a大发布的原版娘化模组，包括 MonsterFeminization、NpcFeminization、FeminizationMod、ExtraFeminizationMod 和 Downfall Feminization 中所有的美术资源，并解决了若干冲突问题和性能/内存泄露问题。此外，还融合了 0v0 的二次元尖塔，自定义卡牌和 Hatk 的战士哥,鸡煲,观者卡图娘化这两个优秀的美术资源。",
+  "version": "1.1.5",
   "mts_version": "3.30.0",
   "sts_version": "12-18-2022",
   "dependencies": ["basemod"]

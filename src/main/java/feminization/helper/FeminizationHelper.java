@@ -62,7 +62,7 @@ public class FeminizationHelper {
         FeminizationUtil.ironcladSelections.add(0, new CharacterSelectionInfo.Builder().name(TEXT[0]).create());
         FeminizationUtil.ironcladSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[1]).bgCharImg("feminizationResources/images/ui/charSelect/ironcladPortrait-2.jpg").shoulderImg("feminizationResources/images/characters/ironclad-2/shoulder.png").shoulder2Img("feminizationResources/images/characters/ironclad-2/shoulder2.png").corpseImg("feminizationResources/images/characters/ironclad-2/corpse.png").atlas("feminizationResources/images/characters/ironclad-2/idle/skeleton.atlas").json("feminizationResources/images/characters/ironclad-2/idle/skeleton.json").canHalfHealth(true).create());
         FeminizationUtil.silentSelections.add(0, new CharacterSelectionInfo.Builder().name(TEXT[0]).create());
-        FeminizationUtil.silentSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[2]).bgCharImg("feminizationResources/images/ui/charSelect/silentPortrait.png").bgCharImgNsfw("feminizationResources/images/ui/charSelect/silentPortrait2.png").atlas("feminizationResources/images/characters/theSilent-2/idle/hunter2.atlas").json("feminizationResources/images/characters/theSilent-2/idle/hunter2.json").customAnim(new CharacterSelectionInfo.CharacterRunnable(){
+        FeminizationUtil.silentSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[2]).bgCharImg("feminizationResources/images/ui/charSelect/silentPortrait.png").bgCharImgNsfw("feminizationResources/images/ui/charSelect/silentPortrait2.png").shoulderImg("feminizationResources/images/characters/theSilent-2/shoulder.png").shoulder2Img("feminizationResources/images/characters/theSilent-2/shoulder2.png").atlas("feminizationResources/images/characters/theSilent-2/idle/hunter2.atlas").json("feminizationResources/images/characters/theSilent-2/idle/hunter2.json").customAnim(new CharacterSelectionInfo.CharacterRunnable(){
 
             @Override
             public void run() {
@@ -70,13 +70,13 @@ public class FeminizationHelper {
                     return;
                 }
                 TheSilent _inst = (TheSilent)this.character;
-                _inst.corpseImg = ResourceUtil.replaceTexture(_inst.corpseImg, FeminizationMod.activeH ? "feminizationResources/images/characters/theSilent-2/corpse_nsfw.png" : "feminizationResources/images/characters/theSilent-2/corpse.png");
+                _inst.corpseImg = ResourceUtil.replaceOwnedTexture(_inst.corpseImg, FeminizationMod.activeH ? "feminizationResources/images/characters/theSilent-2/corpse_nsfw.png" : "feminizationResources/images/characters/theSilent-2/corpse.png");
             }
         }).canHalfHealth(true).create());
         FeminizationUtil.defectSelections.add(0, new CharacterSelectionInfo.Builder().name(TEXT[0]).create());
-        FeminizationUtil.defectSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[3]).corpseImg("feminizationResources/images/characters/defect-2/corpse.png").atlas("feminizationResources/images/characters/defect-2/idle/skeleton.atlas").json("feminizationResources/images/characters/defect-2/idle/skeleton.json").canHalfHealth(true).create());
+        FeminizationUtil.defectSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[3]).bgCharImg("feminizationResources/images/ui/charSelect/defectPortrait.jpg").shoulderImg("feminizationResources/images/characters/defect-2/shoulder.png").shoulder2Img("feminizationResources/images/characters/defect-2/shoulder2.png").corpseImg("feminizationResources/images/characters/defect-2/corpse.png").atlas("feminizationResources/images/characters/defect-2/idle/skeleton.atlas").json("feminizationResources/images/characters/defect-2/idle/skeleton.json").canHalfHealth(true).create());
         FeminizationUtil.watcherSelections.add(0, new CharacterSelectionInfo.Builder().name(TEXT[0]).create());
-        FeminizationUtil.watcherSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[4]).atlas("feminizationResources/images/characters/watcher-2/idle/skeleton.atlas").json("feminizationResources/images/characters/watcher-2/idle/skeleton.json").customAnim(new CharacterSelectionInfo.CharacterRunnable(){
+        FeminizationUtil.watcherSelections.add(1, new CharacterSelectionInfo.Builder().name(TEXT[4]).bgCharImg("feminizationResources/images/ui/charSelect/watcherPortrait.jpg").shoulderImg("feminizationResources/images/characters/watcher-2/shoulder.png").shoulder2Img("feminizationResources/images/characters/watcher-2/shoulder2.png").atlas("feminizationResources/images/characters/watcher-2/idle/skeleton.atlas").json("feminizationResources/images/characters/watcher-2/idle/skeleton.json").customAnim(new CharacterSelectionInfo.CharacterRunnable(){
 
             @Override
             public void run() {
@@ -88,30 +88,36 @@ public class FeminizationHelper {
                     Field eyeAtlasField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeAtlas");
                     Field eyeSkeletonField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeSkeleton");
                     Field eyeStateDataField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeStateData");
+                    Field eyeBoneField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeBone");
+                    Field skeletonField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
                     eyeAtlasField.setAccessible(true);
                     eyeSkeletonField.setAccessible(true);
                     eyeStateDataField.setAccessible(true);
-                    TextureAtlas oldEyeAtlas = (TextureAtlas)eyeAtlasField.get(_inst);
-                    TextureAtlas newEyeAtlas = new TextureAtlas(Gdx.files.internal("feminizationResources/images/characters/watcher-2/eye_anim/skeleton.atlas"));
-                    eyeAtlasField.set(_inst, newEyeAtlas);
-                    TextureAtlas eyeAtlas = (TextureAtlas)eyeAtlasField.get(_inst);
-                    SkeletonJson json = new SkeletonJson(eyeAtlas);
-                    json.setScale(Settings.scale / 1.0f);
-                    SkeletonData skeletonData = json.readSkeletonData(Gdx.files.internal("feminizationResources/images/characters/watcher-2/eye_anim/skeleton.json"));
-                    eyeSkeletonField.set(_inst, new Skeleton(skeletonData));
-                    Skeleton eyeSkeleton = (Skeleton)eyeSkeletonField.get(_inst);
-                    eyeSkeleton.setColor(Color.WHITE);
-                    eyeStateDataField.set(_inst, new AnimationStateData(skeletonData));
-                    AnimationStateData eyeStateData = (AnimationStateData)eyeStateDataField.get(_inst);
-                    _inst.eyeState = new AnimationState(eyeStateData);
-                    eyeStateData.setDefaultMix(0.2f);
-                    _inst.eyeState.setAnimation(0, "None", true);
-                    Field eyeBoneField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"eyeBone");
-                    Field skeletonField = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
                     eyeBoneField.setAccessible(true);
                     skeletonField.setAccessible(true);
                     Skeleton skeleton = (Skeleton)skeletonField.get(_inst);
-                    eyeBoneField.set(_inst, skeleton.findBone("eye_anchor"));
+                    com.esotericsoftware.spine.Bone eyeBone = skeleton.findBone("eye_anchor");
+                    TextureAtlas oldEyeAtlas = (TextureAtlas)eyeAtlasField.get(_inst);
+                    TextureAtlas newEyeAtlas = ResourceUtil.loadAtlas("feminizationResources/images/characters/watcher-2/eye_anim/skeleton.atlas");
+                    try {
+                        SkeletonJson json = new SkeletonJson(newEyeAtlas);
+                        json.setScale(Settings.scale / 1.0f);
+                        SkeletonData skeletonData = json.readSkeletonData(Gdx.files.internal("feminizationResources/images/characters/watcher-2/eye_anim/skeleton.json"));
+                        Skeleton eyeSkeleton = new Skeleton(skeletonData);
+                        eyeSkeleton.setColor(Color.WHITE);
+                        AnimationStateData eyeStateData = new AnimationStateData(skeletonData);
+                        AnimationState eyeState = new AnimationState(eyeStateData);
+                        eyeStateData.setDefaultMix(0.2f);
+                        eyeState.setAnimation(0, "None", true);
+                        eyeAtlasField.set(_inst, newEyeAtlas);
+                        eyeSkeletonField.set(_inst, eyeSkeleton);
+                        eyeStateDataField.set(_inst, eyeStateData);
+                        _inst.eyeState = eyeState;
+                        eyeBoneField.set(_inst, eyeBone);
+                    } catch (Exception exception) {
+                        ResourceUtil.disposeAtlas(newEyeAtlas);
+                        throw exception;
+                    }
                     if (oldEyeAtlas != newEyeAtlas) {
                         ResourceUtil.disposeAtlas(oldEyeAtlas);
                     }

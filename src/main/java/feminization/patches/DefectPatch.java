@@ -16,7 +16,6 @@
  */
 package feminization.patches;
 
-import basemod.helpers.SuperclassFinder;
 import com.esotericsoftware.spine.AnimationState;
 import com.esotericsoftware.spine.Skeleton;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
@@ -25,8 +24,8 @@ import com.megacrit.cardcrawl.cards.DamageInfo;
 import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import com.megacrit.cardcrawl.characters.Defect;
 import feminization.FeminizationMod;
+import feminization.utils.CharacterSelectionInfo;
 import feminization.utils.FeminizationUtil;
-import java.lang.reflect.Field;
 import javassist.CannotCompileException;
 import javassist.expr.ExprEditor;
 import javassist.expr.MethodCall;
@@ -40,14 +39,15 @@ public class DefectPatch {
             if (!(_inst instanceof Defect)) {
                 return;
             }
-            if (!FeminizationUtil.defectSelections.get((int)FeminizationUtil.defectSelected).canHalfHealth) {
+            CharacterSelectionInfo selection = FeminizationUtil.getDefectSelection();
+            if (selection == null || !selection.canHalfHealth) {
                 return;
             }
             if (_inst.currentHealth * 2 > _inst.maxHealth) {
-                Field skeletonFiled = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
-                skeletonFiled.setAccessible(true);
-                Skeleton skeleton = (Skeleton)skeletonFiled.get(_inst);
-                skeleton.setSkin("default");
+                Skeleton skeleton = FeminizationUtil.getSkeleton(_inst);
+                if (skeleton != null) {
+                    skeleton.setSkin("default");
+                }
             }
         }
     }
@@ -59,14 +59,15 @@ public class DefectPatch {
             if (!FeminizationMod.activeH) {
                 return;
             }
-            if (!FeminizationUtil.defectSelections.get((int)FeminizationUtil.defectSelected).canHalfHealth) {
+            CharacterSelectionInfo selection = FeminizationUtil.getDefectSelection();
+            if (selection == null || !selection.canHalfHealth) {
                 return;
             }
             if (_inst.currentHealth * 2 <= _inst.maxHealth) {
-                Field skeletonFiled = SuperclassFinder.getSuperclassField(_inst.getClass(), (String)"skeleton");
-                skeletonFiled.setAccessible(true);
-                Skeleton skeleton = (Skeleton)skeletonFiled.get(_inst);
-                skeleton.setSkin("damaged");
+                Skeleton skeleton = FeminizationUtil.getSkeleton(_inst);
+                if (skeleton != null) {
+                    skeleton.setSkin("damaged");
+                }
             }
         }
     }

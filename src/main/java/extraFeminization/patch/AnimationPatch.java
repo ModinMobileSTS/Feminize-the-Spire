@@ -18,7 +18,6 @@ package extraFeminization.patch;
 
 import com.badlogic.gdx.Gdx;
 import com.esotericsoftware.spine.AnimationState;
-import com.evacipated.cardcrawl.modthespire.lib.SpireInsertPatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePostfixPatch;
 import com.megacrit.cardcrawl.cards.AbstractCard;
@@ -54,7 +53,10 @@ public class AnimationPatch {
 
     @SpirePatch(clz=Ironclad.class, method="damage")
     public static class damage {
-        @SpireInsertPatch(rloc=1)
+        // Was SpireInsertPatch(rloc=1), a hardcoded bytecode offset inside Ironclad.damage. A
+        // postfix achieves the same effect (arm the shared anim timer after being hit) without
+        // breaking when the method body shifts.
+        @SpirePostfixPatch
         public static void postfix(Ironclad _inst, DamageInfo info) {
             if (animTimer <= 0.0f) {
                 animTimer = defaultAnimTimer;

@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     java
 }
@@ -7,10 +9,22 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+val gameRoots = listOfNotNull(
+    System.getenv("STS_ROOT")?.takeIf { it.isNotBlank() }?.let(::File),
+    file("D:/Desktop/SlayTheAmethystModded"),
+    rootProject.file("../SlayTheAmethystModded")
+)
+
+fun resolveGameDependency(vararg relativePaths: String): File =
+    gameRoots
+        .flatMap { root -> relativePaths.map { root.resolve(it) } }
+        .firstOrNull(File::exists)
+        ?: throw GradleException("Unable to locate game dependency: ${relativePaths.joinToString()}. Set STS_ROOT to the SlayTheSpire project or dependency root.")
+
 val gameClasspath = files(
-    "D:/Desktop/SlayTheAmethystModded/app/src/main/assets/components/mods/ModTheSpire.jar",
-    "D:/Desktop/SlayTheAmethystModded/app/src/main/assets/components/mods/BaseMod.jar",
-    "D:/Desktop/SlayTheAmethystModded/tools/desktop-1.0.jar"
+    resolveGameDependency("app/src/main/assets/components/mods/ModTheSpire.jar"),
+    resolveGameDependency("app/src/main/assets/components/mods/BaseMod.jar"),
+    resolveGameDependency("tools/desktop-1.0.jar", "build-deps/desktop.jar", "build-deps/steamapps/common/SlayTheSpire/desktop-1.0.jar")
 )
 
 val modManifestFile = layout.projectDirectory.file("src/main/resources/ModTheSpire.json")

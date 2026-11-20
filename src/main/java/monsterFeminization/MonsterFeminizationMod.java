@@ -73,7 +73,9 @@ EditStringsSubscriber {
             activeH = config.getBool(ACTIVE_MONSTER_NSFW_KEY);
             activeFeminization = config.getBool(ACTIVE_MONSTER_FEMINIZATION_KEY);
         }
-        catch (IOException e) {
+        catch (Exception e) {
+            // SpireConfig parsing can throw NumberFormat/RuntimeException on a corrupt properties
+            // file; a broken value must disable the feature instead of aborting mod bootstrap.
             e.printStackTrace();
         }
     }
