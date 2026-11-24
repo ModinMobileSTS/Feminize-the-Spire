@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import zipfile
 
 from test_resource_lifecycle import TEXTURE_STUB, dependencies, write_stubs
 
@@ -20,6 +21,7 @@ HARNESS = r'''
 import com.badlogic.gdx.*;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.esotericsoftware.spine.*;
 import java.io.File;
@@ -27,6 +29,8 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.*;
 import java.util.*;
 import javassist.*;
+import downfallFeminization.DownfallCompatibilityPatches;
+import feminization.utils.ResourceUtil;
 
 public class MonsterResourceRegression {
     static void check(boolean ok, String message) {
@@ -130,6 +134,86 @@ public class MonsterResourceRegression {
         check(Texture.all.get(Texture.all.size() - 1).disposals == 1, "native swapBody failure leaked temporary atlas");
         System.out.println("PASS optional Gremlin swapBody editor: 20 executed swaps, enabled/disabled cleanup, failed load rollback");
     }
+    static SkeletonData loadGremlin(File base) {
+        return new SkeletonJson(ResourceUtil.loadAtlas(new FileHandle(base + ".atlas")))
+            .readSkeletonData(new FileHandle(base + ".json"));
+    }
+    static AnimationState animationState(SkeletonData data) {
+        AnimationState state = new AnimationState(new AnimationStateData(data));
+        state.setAnimation(0, "animation", true).setTime(0.125f);
+        return state;
+    }
+    static void expectStandbyCrash(Method render, Object orb) throws Exception {
+        try {
+            render.invoke(orb, (Object)null);
+            throw new AssertionError("unrepaired standby did not reproduce the crash");
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            check(cause instanceof IndexOutOfBoundsException && cause.getMessage().contains("40 >= 40"), "wrong exception: " + cause);
+            check(cause.getStackTrace()[1].getClassName().endsWith("Animation$RotateTimeline"), "wrong Spine crash site");
+        }
+    }
+    static void standby(File gameResources) throws Exception {
+        // Run the actual instrumented render call using the field layout and call sequence from Downfall.
+        ClassPool pool = new ClassPool(true);
+        CtClass target = pool.makeClass("gremlin.orbs.GremlinStandby");
+        target.addField(CtField.make("public com.esotericsoftware.spine.Skeleton skeleton;", target));
+        target.addField(CtField.make("public com.esotericsoftware.spine.AnimationState state;", target));
+        target.addField(CtField.make("public String animationName = \"animation\";", target));
+        target.addField(CtField.make("public String assetFolder;", target));
+        target.addField(CtField.make("public int rendered;", target));
+        target.addMethod(CtNewMethod.make("public void render(com.badlogic.gdx.graphics.g2d.SpriteBatch sb) { this.state.update(0.016f); this.state.apply(this.skeleton); this.skeleton.updateWorldTransform(); this.rendered++; }", target));
+        target.getDeclaredMethod("render").instrument(DownfallCompatibilityPatches.GremlinStandbyRenderPatch.Instrument());
+        byte[] bytes = target.toBytecode();
+        Class<?> patched = new ClassLoader(MonsterResourceRegression.class.getClassLoader()) {
+            Class<?> define() { return defineClass("gremlin.orbs.GremlinStandby", bytes, 0, bytes.length); }
+        }.define();
+        Method render = patched.getMethod("render", SpriteBatch.class);
+        Field skeletonField = patched.getField("skeleton"), stateField = patched.getField("state");
+        for (String[] paths : new String[][]{{"sneak", "thiefGremlin"}, {"wizard", "wizardGremlin"}}) {
+            String folder = paths[0];
+            SkeletonData original = loadGremlin(new File(gameResources, "images/monsters/theBottom/" + paths[1] + "/skeleton"));
+            SkeletonData feminized = loadGremlin(new File("src/main/resources/feminizethespire/downfall_overrides/gremlinResources/images/char/" + folder + "/skeleton"));
+            Skeleton skeleton = new Skeleton(original);
+            check(skeleton.getBones().size == 40, "test requires the original 40-bone skeleton");
+            Object orb = patched.getConstructor().newInstance();
+            patched.getField("assetFolder").set(orb, folder);
+            skeletonField.set(orb, skeleton);
+            for (boolean foreignTrackOnly : new boolean[]{false, true}) {
+                AnimationState shared = animationState(foreignTrackOnly ? original : feminized);
+                if (foreignTrackOnly) {
+                    shared.getCurrent(0).setAnimation(feminized.findAnimation("animation"));
+                }
+                shared.setTimeScale(0.75f);
+                AnimationState.TrackEntry oldTrack = shared.getCurrent(0);
+                stateField.set(orb, shared);
+                gremlin.GremlinMod.gremlinAnimationStateMap.put(folder, shared);
+                DownfallCompatibilityPatches.activeFeminization = false;
+                expectStandbyCrash(render, orb);
+                DownfallCompatibilityPatches.activeFeminization = true;
+                int before = patched.getField("rendered").getInt(orb);
+                render.invoke(orb, (Object)null);
+                AnimationState repaired = (AnimationState)stateField.get(orb);
+                check(repaired != shared && repaired.getData().getSkeletonData() == original, "orb did not get matching state");
+                check(repaired.getCurrent(0).getAnimation() == original.findAnimation("animation"), "orb kept foreign timeline");
+                check(repaired.getCurrent(0).getLoop() && repaired.getCurrent(0).getTime() == oldTrack.getTime()
+                    && repaired.getTimeScale() == shared.getTimeScale(), "playback was not preserved");
+                check(skeletonField.get(orb) == skeleton, "orb skin was replaced");
+                check(gremlin.GremlinMod.gremlinAnimationStateMap.get(folder) == shared && shared.getCurrent(0) == oldTrack,
+                    "shared state was modified");
+                render.invoke(orb, (Object)null);
+                check(stateField.get(orb) == repaired && patched.getField("rendered").getInt(orb) == before + 2,
+                    "normal render was skipped or rebuilt the state");
+            }
+            // A matching modded skin must keep its original state.
+            AnimationState correct = animationState(feminized);
+            skeletonField.set(orb, new Skeleton(feminized));
+            stateField.set(orb, correct);
+            render.invoke(orb, (Object)null);
+            check(stateField.get(orb) == correct, "matching feminized state was replaced");
+        }
+        System.out.println("PASS Gremlin standby render repairs 40 >= 40 for sneak/wizard, without replacing skins or shared states");
+    }
     public static void main(String[] args) throws Exception {
         Gdx.files = (Files)Proxy.newProxyInstance(Files.class.getClassLoader(), new Class[]{Files.class},
             (proxy, method, values) -> {
@@ -138,6 +222,7 @@ public class MonsterResourceRegression {
             });
         bones();
         gremlins();
+        standby(new File(args[0]));
     }
 }
 '''
@@ -181,6 +266,11 @@ def main():
     }
     with tempfile.TemporaryDirectory(prefix="monster-cache-tests-", dir=ROOT / "build") as folder:
         folder = Path(folder)
+        with zipfile.ZipFile(desktop) as jar:
+            for gremlin in ("thiefGremlin", "wizardGremlin"):
+                for ext in ("atlas", "json"):
+                    # Downfall's originals use the same 40-bone rigs. Textures are stubbed.
+                    jar.extract(f"images/monsters/theBottom/{gremlin}/skeleton.{ext}", folder)
         sources = write_stubs(folder, stubs)
         # The Hexaghost class must inherit skeleton; production superclass lookup is tested unchanged.
         path = folder / "com/megacrit/cardcrawl/monsters/exordium/Hexaghost.java"
@@ -189,7 +279,7 @@ def main():
         harness.write_text(HARNESS)
         sources.append(str(harness))
         subprocess.run(["javac", "-proc:none", "-cp", classpath, "-d", str(folder), *sources], cwd=ROOT, check=True)
-        subprocess.run(["java", "-cp", f"{folder}{os.pathsep}{classpath}", "MonsterResourceRegression"], cwd=ROOT, check=True)
+        subprocess.run(["java", "-cp", f"{folder}{os.pathsep}{classpath}", "MonsterResourceRegression", str(folder)], cwd=ROOT, check=True)
 
 
 if __name__ == "__main__":
