@@ -28,9 +28,10 @@ public class NpcAnimationResourcePatch {
     }
 
     private static boolean isOverriddenNpcResource(String path) {
+        if ("images/npcs/merchant/skeleton.atlas".equals(path) || "images/npcs/merchant/skeleton.json".equals(path)) {
+            return !MerchantFeminizationCompatibility.isActive();
+        }
         return "images/npcs/neow/skeleton.atlas".equals(path)
-                || "images/npcs/neow/skeleton.json".equals(path)
-                || "images/npcs/merchant/skeleton.atlas".equals(path)
-                || "images/npcs/merchant/skeleton.json".equals(path);
+                || "images/npcs/neow/skeleton.json".equals(path);
     }
 }
