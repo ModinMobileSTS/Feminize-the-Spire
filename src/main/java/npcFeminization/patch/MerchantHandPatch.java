@@ -8,6 +8,7 @@ import feminization.utils.ResourceUtil;
 import javassist.CannotCompileException;
 import javassist.expr.ExprEditor;
 import javassist.expr.FieldAccess;
+import npcFeminization.MerchantFeminizationCompatibility;
 import npcFeminization.NpcFeminizationMod;
 
 @SpirePatch(clz = ShopScreen.class, method = "render", paramtypez = {SpriteBatch.class})
@@ -27,8 +28,8 @@ public class MerchantHandPatch {
     }
 
     public static Texture getHandTexture(Texture original) {
-        // Keep the vanilla static intact so disabling NPC feminization restores it immediately.
-        if (!NpcFeminizationMod.activeFeminization) {
+        // Merchant Feminization already sets handImg to the player's selected texture.
+        if (!NpcFeminizationMod.activeFeminization || MerchantFeminizationCompatibility.isActive()) {
             return original;
         }
         return ResourceUtil.replaceTexture(original, HAND_TEXTURE_PATH);
