@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.math.MathUtils;
 import com.evacipated.cardcrawl.modthespire.lib.SpireConfig;
+import com.esotericsoftware.spine.Animation;
 import com.esotericsoftware.spine.AnimationState;
 import com.esotericsoftware.spine.AnimationStateData;
 import com.esotericsoftware.spine.Skeleton;
@@ -86,6 +87,7 @@ public class DownfallCompatibilityPatches {
     private static final Method LOAD_ANIMATION = findLoadAnimationMethod();
     private static final ThreadLocal<Boolean> REDIRECTING_ANIMATION = new ThreadLocal<Boolean>();
     private static final Map<String, GremlinAssets> GREMLIN_ASSETS = new HashMap<String, GremlinAssets>();
+    private static final Set<String> LOGGED_GREMLIN_STANDBY_REBINDS = new HashSet<String>();
     private static final Set<String> LOGGED_ANIMATION_PATHS = new HashSet<String>();
     private static final Set<String> LOGGED_RESOURCE_PATHS = new HashSet<String>();
     private static final Set<Object> EMBEDDED_SKINS = Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>());
@@ -103,8 +105,7 @@ public class DownfallCompatibilityPatches {
     private static boolean embeddedSkinsResolved;
     /**
      * Set once a full pass over the reskin characters made no changes, so the per-frame unlock scan
-     * (a reflective read per character) stops repeating itself. {@code reskinUnlock} never reverts,
-     * and the character array is fixed for the session, so one clean pass is conclusive.
+     * (a reflective read per character) stops repeating itself until skins are added or settings reload.
      */
     private static boolean alternateSkinsUnlockResolved;
     /** Cached {@code Class#field -> Field} lookups; a null value records a confirmed miss. */
@@ -119,6 +120,14 @@ public class DownfallCompatibilityPatches {
 
     @SpirePatch(cls = "reskinContent.reskinContent", method = "loadSettings", requiredModId = DOWNFALL_MOD_ID, optional = true)
     public static class DefaultSkinPatch {
+        @SpirePrefixPatch
+        public static void prefix() {
+            if (activeFeminization) {
+                // Downfall validates saved indices against the current skin array as it reads them.
+                appendEmbeddedSkins();
+            }
+        }
+
         @SpirePostfixPatch
         public static void postfix() {
             if (!activeFeminization) {
@@ -126,11 +135,13 @@ public class DownfallCompatibilityPatches {
                 return;
             }
             debug("reskinContent.loadSettings postfix entered");
+            // Downfall restores unlocks on every load, including when switching save slots.
+            appendEmbeddedSkins();
+            alternateSkinsUnlockResolved = false;
             if (unlockAlternateSkins()) {
                 debug("Unlocked Downfall reskin skins after loadSettings; saving Downfall reskin settings");
                 saveReskinSettings();
             }
-            appendEmbeddedSkins();
             logSkinState("after reskinContent.loadSettings", true);
         }
     }
@@ -202,11 +213,11 @@ public class DownfallCompatibilityPatches {
                 logDisabled("CharacterSelectScreen.update");
                 return;
             }
+            appendEmbeddedSkins();
             if (unlockAlternateSkins()) {
                 debug("Unlocked Downfall reskin skins during character select update; saving Downfall reskin settings");
                 saveReskinSettings();
             }
-            appendEmbeddedSkins();
             updateGremlinSkinControls(__instance);
             if (DEBUG_LOGS) {
                 if (characterSelectLogCount < 5) {
@@ -332,6 +343,77 @@ public class DownfallCompatibilityPatches {
                 e.printStackTrace();
                 return SpireReturn.Continue();
             }
+        }
+    }
+
+    @SpirePatch(cls = "gremlin.orbs.GremlinStandby", method = "render", paramtypez = {SpriteBatch.class}, requiredModId = DOWNFALL_MOD_ID, optional = true)
+    public static class GremlinStandbyRenderPatch {
+        public static ExprEditor Instrument() {
+            return new ExprEditor() {
+                @Override
+                public void edit(MethodCall call) throws CannotCompileException {
+                    if (AnimationState.class.getName().equals(call.getClassName()) && "apply".equals(call.getMethodName())
+                            && "(Lcom/esotericsoftware/spine/Skeleton;)V".equals(call.getSignature())) {
+                        call.replace("{ downfallFeminization.DownfallCompatibilityPatches.applyGremlinStandbyAnimation(this, $0, $1); }");
+                    }
+                }
+            };
+        }
+    }
+
+    public static void applyGremlinStandbyAnimation(Object standby, AnimationState state, Skeleton skeleton) {
+        if (!activeFeminization || skeleton == null) {
+            state.apply(skeleton);
+            return;
+        }
+        SkeletonData data = skeleton.getData();
+        if (state.getData() != null && state.getData().getSkeletonData() == data) {
+            try {
+                state.apply(skeleton);
+                return;
+            } catch (IndexOutOfBoundsException e) {
+                // A foreign track can still hold an animation from another skeleton even when the
+                // AnimationStateData matches. Do not catch failures from unrelated render code or listeners.
+                StackTraceElement[] trace = e.getStackTrace();
+                if (trace.length < 2 || !"com.badlogic.gdx.utils.Array".equals(trace[0].getClassName())
+                        || !"get".equals(trace[0].getMethodName())
+                        || !trace[1].getClassName().startsWith("com.esotericsoftware.spine.Animation$")
+                        || !"apply".equals(trace[1].getMethodName())) {
+                    throw e;
+                }
+            }
+        }
+
+        // Rebind just this standby orb to the skeleton it actually renders. Rewriting the shared
+        // Downfall caches would change the animation under other orbs or another mod's skin.
+        AnimationState.TrackEntry oldTrack = state.getCurrent(0);
+        Animation oldAnimation = oldTrack == null ? null : oldTrack.getAnimation();
+        Animation animation = oldAnimation == null ? null : data.findAnimation(oldAnimation.getName());
+        boolean sameAnimationName = animation != null;
+        if (animation == null) {
+            String idleName = getStringField(standby, "animationName");
+            animation = idleName == null ? null : data.findAnimation(idleName);
+        }
+        if (animation == null && data.getAnimations().size > 0) {
+            animation = data.getAnimations().first();
+        }
+        AnimationState replacement = new AnimationState(new AnimationStateData(data));
+        replacement.setTimeScale(state.getTimeScale());
+        skeleton.setToSetupPose();
+        if (animation != null) {
+            AnimationState.TrackEntry track = replacement.setAnimation(0, animation, !sameAnimationName || oldTrack.getLoop());
+            if (sameAnimationName) {
+                track.setTime(oldTrack.getTime());
+                track.setTimeScale(oldTrack.getTimeScale());
+            }
+            replacement.apply(skeleton);
+        }
+        if (getFieldValue(standby, "state") == state) {
+            setFieldValue(standby, "state", replacement);
+        }
+        String assetFolder = getStringField(standby, "assetFolder");
+        if (LOGGED_GREMLIN_STANDBY_REBINDS.add(assetFolder)) {
+            logger.warn("Rebound mismatched Downfall standby animation for {} ({} bones)", assetFolder, data.getBones().size);
         }
     }
 
@@ -782,6 +864,7 @@ public class DownfallCompatibilityPatches {
             System.arraycopy(skins, 0, expanded, 0, skins.length);
             Array.set(expanded, skins.length, skin);
             findField(character.getClass(), "skins").set(character, expanded);
+            alternateSkinsUnlockResolved = false;
             clampReskinCount(character, skins.length + 1);
             debug("Appended embedded Downfall skin to " + character.getClass().getName() + ": template=" + templateSkinClassName + ", index=" + skins.length + ", atlasURL=" + atlasUrl + ", jsonURL=" + jsonUrl + ", placeholder=" + placeholderPng);
             return true;
@@ -825,6 +908,8 @@ public class DownfallCompatibilityPatches {
         setFloatFieldIfDifferent(skin, "renderscale", renderScale);
         setFieldValue(skin, "portraitAtlasPath", null);
         setFieldValue(skin, "portraitAnimationType", 0);
+        // Our portraits are static, and Downfall has no default animation-type key for the added index.
+        setFieldValue(skin, "forcePortraitAnimationType", true);
         Texture placeholder = loadTexture(placeholderPng);
         setFieldValue(skin, "portraitStatic_IMG", placeholder);
         setFieldValue(skin, "portraitAnimation_IMG", placeholder);
