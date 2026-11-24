@@ -8,7 +8,10 @@ package feminization.utils;
 
 import basemod.helpers.SuperclassFinder;
 import com.esotericsoftware.spine.Skeleton;
+import com.esotericsoftware.spine.SkeletonData;
+import com.esotericsoftware.spine.Skin;
 import com.evacipated.cardcrawl.modthespire.lib.SpireConfig;
+import com.megacrit.cardcrawl.characters.AbstractPlayer;
 import feminization.FeminizationMod;
 import feminization.utils.CharacterSelectionInfo;
 import java.io.IOException;
@@ -30,6 +33,8 @@ public class FeminizationUtil {
     public static String watcherId = "";
 
     private static final String SKELETON_FIELD_NAME = "skeleton";
+    private static final String DEFAULT_SKIN = "default";
+    private static final String DAMAGED_SKIN = "damaged";
     /**
      * Cache of {@code creature class -> skeleton Field}. SuperclassFinder walks the hierarchy and
      * throws a NoSuchFieldException per level; damage/heal patches hit this on every event, so the
@@ -67,6 +72,25 @@ public class FeminizationUtil {
             index += selections.size();
         }
         return selections.get(index);
+    }
+
+    public static void applyHalfHealthSkin(AbstractPlayer player, boolean damaged) {
+        Skeleton skeleton = getSkeleton(player);
+        SkeletonData data = skeleton == null ? null : skeleton.getData();
+        if (data == null) {
+            return;
+        }
+
+        // A reskin or multiplayer restore can replace the live skeleton without changing our
+        // selected skin. Only switch when the current skeleton supports both directions.
+        Skin defaultSkin = data.findSkin(DEFAULT_SKIN);
+        Skin damagedSkin = data.findSkin(DAMAGED_SKIN);
+        if (defaultSkin != null && damagedSkin != null) {
+            Skin target = damaged ? damagedSkin : defaultSkin;
+            if (skeleton.getSkin() != target) {
+                skeleton.setSkin(target);
+            }
+        }
     }
 
     public static Skeleton getSkeleton(Object creature) {
