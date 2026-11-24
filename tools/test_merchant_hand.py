@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test the merchant hand patch without starting the game or requiring OpenGL.
+"""Test the merchant hand patch and mod compatibility without starting the game.
 
 Usage: python3 tools/test_merchant_hand.py --game-root "$STS_ROOT" [--jar path/to/mod.jar]
 """
@@ -21,10 +21,13 @@ OVERRIDE = "feminizethespire/npc_overrides/" + ORIGINAL
 HARNESS = r'''
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.evacipated.cardcrawl.modthespire.Loader;
+import com.evacipated.cardcrawl.modthespire.ModInfo;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
 import com.megacrit.cardcrawl.helpers.ImageMaster;
 import javassist.*;
 import javassist.expr.*;
+import npcFeminization.NpcAnimationResourcePatch;
 import npcFeminization.NpcFeminizationMod;
 import npcFeminization.patch.MerchantHandPatch;
 
@@ -45,6 +48,7 @@ public class MerchantHandRegression {
     }
 
     public static void main(String[] args) throws Exception {
+        Loader.MODINFOS = new ModInfo[0];
         Texture original = new Texture("vanilla");
         NpcFeminizationMod.activeFeminization = false;
         check(MerchantHandPatch.getHandTexture(original) == original, "disabled hand changed");
@@ -114,6 +118,38 @@ public class MerchantHandRegression {
         check(ImageMaster.loads == 2, "render reloaded texture");
         check(!original.disposed && !replacement.disposed, "render disposed shared textures");
         System.out.println("PASS patched rendering, repeated live toggles, unrelated fields, original static preserved");
+
+        NpcFeminizationMod.activeFeminization = true;
+        String merchant = "images/npcs/merchant/skeleton";
+        String neow = "images/npcs/neow/skeleton";
+        String prefix = "feminizethespire/npc_overrides/";
+        for (String extension : new String[]{".atlas", ".json"}) {
+            String path = merchant + extension;
+            check(NpcAnimationResourcePatch.redirectPath(path).equals(prefix + path), "built-in merchant missing");
+        }
+
+        java.lang.reflect.Constructor<ModInfo> constructor = ModInfo.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        ModInfo external = constructor.newInstance();
+        external.ID = "MerchantFeminization";
+        Loader.MODINFOS = new ModInfo[]{external};
+        for (String extension : new String[]{".atlas", ".json"}) {
+            String path = merchant + extension;
+            check(NpcAnimationResourcePatch.redirectPath(path).equals(path), "built-in merchant still redirected");
+            path = neow + extension;
+            check(NpcAnimationResourcePatch.redirectPath(path).equals(prefix + path), "Neow override was disabled");
+        }
+        for (boolean enabled : new boolean[]{true, false}) {
+            NpcFeminizationMod.activeFeminization = enabled;
+            // The external mod's ShopScreen.init postfix sets handImg to its selected image.
+            Texture externalHand = new Texture(enabled ? "hand1-2.png" : "hand2-1.png");
+            patched.getMethod("setImages", Texture.class, Texture.class).invoke(null, externalHand, rug);
+            Texture[] drawn = (Texture[])patched.getMethod("render").invoke(null);
+            check(drawn[0] == externalHand, "external hand was overwritten");
+            check(!externalHand.disposed, "external hand was disposed");
+        }
+        check(ImageMaster.loads == 2, "external hand triggered an additional texture load");
+        System.out.println("PASS external merchant and hand take priority; Neow is unaffected");
     }
 }
 '''
@@ -145,7 +181,10 @@ def main():
             assert jar.read(OVERRIDE) == override, "hand override missing or corrupted in jar"
             assert ORIGINAL not in jar.namelist(), "unconditional vanilla-path override packaged"
             assert "npcFeminization/patch/MerchantHandPatch.class" in jar.namelist(), "patch missing in jar"
-        print("PASS jar contains patch and namespaced hand texture only", flush=True)
+            assert not any(name.startswith(("merchantFeminization/", "merchantFeminizationResources/"))
+                           or name.endswith("MerchantFeminization.jar") for name in jar.namelist()
+                           ), "external mod bundled in jar"
+        print("PASS jar contains the built-in hand override but not the external mod", flush=True)
 
     stubs = {
         "npcFeminization.NpcFeminizationMod": "public static boolean activeFeminization = true, activeH;",
@@ -176,6 +215,8 @@ def main():
         main_file = folder / "MerchantHandRegression.java"
         main_file.write_text(HARNESS)
         sources.extend([str(main_file), str(ROOT / "src/main/java/npcFeminization/patch/MerchantHandPatch.java"),
+                        str(ROOT / "src/main/java/npcFeminization/MerchantFeminizationCompatibility.java"),
+                        str(ROOT / "src/main/java/npcFeminization/NpcAnimationResourcePatch.java"),
                         str(ROOT / "src/main/java/feminization/utils/ResourceUtil.java")])
         classpath = os.pathsep.join(map(str, (mts, desktop)))
         subprocess.run(["javac", "-proc:none", "-cp", classpath, "-d", str(folder), *sources], cwd=ROOT, check=True)
