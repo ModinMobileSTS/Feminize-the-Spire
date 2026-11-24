@@ -17,7 +17,6 @@
 package feminization.patches;
 
 import com.esotericsoftware.spine.AnimationState;
-import com.esotericsoftware.spine.Skeleton;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePatch;
 import com.evacipated.cardcrawl.modthespire.lib.SpirePostfixPatch;
 import com.megacrit.cardcrawl.cards.DamageInfo;
@@ -44,10 +43,7 @@ public class DefectPatch {
                 return;
             }
             if (_inst.currentHealth * 2 > _inst.maxHealth) {
-                Skeleton skeleton = FeminizationUtil.getSkeleton(_inst);
-                if (skeleton != null) {
-                    skeleton.setSkin("default");
-                }
+                FeminizationUtil.applyHalfHealthSkin(_inst, false);
             }
         }
     }
@@ -64,10 +60,7 @@ public class DefectPatch {
                 return;
             }
             if (_inst.currentHealth * 2 <= _inst.maxHealth) {
-                Skeleton skeleton = FeminizationUtil.getSkeleton(_inst);
-                if (skeleton != null) {
-                    skeleton.setSkin("damaged");
-                }
+                FeminizationUtil.applyHalfHealthSkin(_inst, true);
             }
         }
     }
@@ -86,4 +79,3 @@ public class DefectPatch {
         }
     }
 }
-
