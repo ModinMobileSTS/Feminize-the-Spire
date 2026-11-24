@@ -20,6 +20,7 @@ import com.megacrit.cardcrawl.characters.AnimatedNpc;
 import com.megacrit.cardcrawl.rooms.ShopRoom;
 import com.megacrit.cardcrawl.shop.Merchant;
 import java.lang.reflect.Field;
+import npcFeminization.MerchantFeminizationCompatibility;
 import npcFeminization.NpcFeminizationMod;
 
 public class MerchantPatch {
@@ -28,7 +29,8 @@ public class MerchantPatch {
     public static class nsfw {
         @SpirePostfixPatch
         public static void postfix(ShopRoom _inst) throws Exception {
-            if (!NpcFeminizationMod.activeFeminization || !NpcFeminizationMod.activeH) {
+            if (!NpcFeminizationMod.activeFeminization || !NpcFeminizationMod.activeH
+                    || MerchantFeminizationCompatibility.isActive()) {
                 return;
             }
             try {
